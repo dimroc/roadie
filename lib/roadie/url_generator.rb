@@ -59,7 +59,7 @@ module Roadie
       return root_uri.to_s if path.nil? or path.empty?
       return path if path_is_anchor?(path)
       return add_scheme(path) if path_is_schemeless?(path)
-      return path if Utils.path_is_absolute?(path)
+      return path if path_is_absolute?(path)
 
       combine_segments(root_uri, base, path).to_s
     end
@@ -117,6 +117,22 @@ module Roadie
 
     def path_is_anchor?(path)
       path.start_with? '#'
+    end
+
+    def path_is_absolute?(path)
+      # Ruby's URI is pretty unforgiving, but roadie aims to be. Don't involve
+      # URI for URLs that's easy to determine to be absolute.
+      # URLs starting with a scheme (http:, data:) are absolute.
+      #
+      # URLs that start with double slashes (//css/app.css) are also absolute
+      # in modern browsers, but most email clients do not understand them it.
+      path =~ %r{^\w+:} || !parse_path(path).relative?
+    end
+
+    def parse_path(path)
+      URI.parse(path)
+    rescue URI::InvalidURIError => error
+      raise InvalidUrlPath.new(path, error)
     end
 
     VALID_OPTIONS = Set[:host, :port, :path, :protocol, :scheme].freeze
